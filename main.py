@@ -386,14 +386,14 @@ def main():
             elif gamer.health == 1:
                 screen.blit(pygame.image.load('static/photos/hp.png'), (WIDTH - 170, 583))
             else:
-                # Мини меню
-                screen.blit(pygame.image.load("static/photos/TheEnd.png"),
-                            (WIDTH // 2 - 421 // 2 + 5, HEIGHT // 2 - 210))
                 # КРАСНЫЙ ЭКРАН СМЕРТИ ИГРОКА
                 scr = pygame.Surface((WIDTH, HEIGHT))
                 scr.set_alpha(160)
                 pygame.draw.rect(scr, (204, 0, 0), (0, 0, 1000, 560))
                 screen.blit(scr, (0, 0))
+                # Мини меню
+                screen.blit(pygame.image.load("static/photos/TheEnd.png"),
+                            (WIDTH // 2 - 421 // 2 + 5, HEIGHT // 2 - 210))
 
                 # СЧЕТ ИГРОКА НА ФИНАЛЬНОМ ЭКРАНЕ
                 font = pygame.font.SysFont('Showcard gothic', 80)
