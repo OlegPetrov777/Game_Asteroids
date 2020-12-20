@@ -7,17 +7,19 @@ from pygame.transform import scale
 WIDTH = 1000  # ширина игрового окна
 HEIGHT = 655  # высота игрового окна
 FPS = 60  # частота кадров в секунду
-bg = pygame.image.load('static/bg.jpg')  # Картинка для фона
+bg = pygame.image.load('static/photos/bg.jpg')  # Картинка для фона
 
 """ Создаем игру и окно """
 pygame.init()  # запускает pygame
-pygame.mixer.init()  # для звука
+pygame.mixer.init()  # для звуков
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("StarWars")  # название окна
+pygame.display.set_caption("ASTEROIDS")  # название окна
 clock = pygame.time.Clock()  # для ФПС
 
 
-""" ПАРАМЕТРЫ """
+
+
+""" ОБЪЕКТЫ игры """
 class Cursor:
     def __init__(self):
         self.cord_x = 0
@@ -36,17 +38,21 @@ class Cursor:
 
 class Gamer:
     def __init__(self):
-        self.sprite = pygame.image.load('static/UFO.png')
         self.height = 45
         self.width = 45
         self.speed = 5
+        self.health = 3
+        self.score = 0
+        self.time = -1  # Время щита при дамаге
+        self.sprite = pygame.image.load('static/photos/UFO.png')
+        self.sound_damage = pygame.mixer.Sound('static/music/damage.mp3')
+        self.sound_die = pygame.mixer.Sound('static/music/game_over.mp3')
+
         self.cord_x = WIDTH // 2 - 50
         self.cord_y = HEIGHT // 2 - 50
+
         self.status = True
         self.boost_status = False  # ускорние
-        self.health = 3
-        self.time = -1
-        self.score = 0
 
     def move_left(self):
         self.cord_x -= self.speed
@@ -63,13 +69,18 @@ class Gamer:
 
 class Bullets:
     def __init__(self):
+        # Характеристики
         self.speed = 25
         self.long = 25
         self.width = 3
-        self.color = "red"
-
         self.damage = 3
+        self.color = "red"
+        self.status = False
 
+        # Звук
+        self.sound = pygame.mixer.Sound('static/music/piu.mp3')
+
+        # Координаты
         self.start_cord_x = 0
         self.start_cord_y = 0
 
@@ -78,8 +89,6 @@ class Bullets:
 
         self.create_x = 0
         self.create_y = 0
-
-        self.status = False
 
     def fire_right(self):
         self.start_cord_x += self.speed
@@ -100,9 +109,9 @@ class Bullets:
 
 class Asteroid:
     def __init__(self, x):
-        size = random.randint(60, 180)  # Рандомный размер астероида
-        self.sprite = scale(pygame.image.load("static/aster.png"), (size, size))
         self.speed = random.randint(1, 6)
+        size = random.randint(60, 180)  # Рандомный размер астероида
+        self.size = size
         if 60 <= size <= 90:
             self.health = 15
             self.coin = 10
@@ -112,20 +121,25 @@ class Asteroid:
         else:
             self.health = 60
             self.coin = 50
-        self.death_step = 0
+
+
+        self.sprite = scale(pygame.image.load("static/photos/aster.png"), (size, size))
+        self.sound_die = pygame.mixer.Sound('static/music/4_aster.mp3')
+
         self.cord_x = x  # random.randint(0, WIDTH - 62)
-        self.cord_y = random.randint(0, 555-180)
-        self.size = size
+        self.cord_y = random.randint(0, 555 - 180)
+
+        self.death_step = 0
         self.boom_list = [
-            pygame.image.load('static/boom_1.png'),
-            pygame.image.load('static/boom_2.png'),
-            pygame.image.load('static/boom_3.png'),
-            pygame.image.load('static/boom_4.png'),
-            pygame.image.load('static/boom_5.png'),
-            pygame.image.load('static/boom_6.png'),
-            pygame.image.load('static/boom_7.png'),
-            pygame.image.load('static/boom_8.png'),
-            pygame.image.load('static/boom_9.png')
+            pygame.image.load('static/photos/boom_1.png'),
+            pygame.image.load('static/photos/boom_2.png'),
+            pygame.image.load('static/photos/boom_3.png'),
+            pygame.image.load('static/photos/boom_4.png'),
+            pygame.image.load('static/photos/boom_5.png'),
+            pygame.image.load('static/photos/boom_6.png'),
+            pygame.image.load('static/photos/boom_7.png'),
+            pygame.image.load('static/photos/boom_8.png'),
+            pygame.image.load('static/photos/boom_9.png')
         ]
 
 
@@ -142,6 +156,10 @@ def game():
     asteroids_l = []
 
     """ Цикл игры MAIN """
+    pygame.mixer.music.load('static/music/in_game.mp3')  # фоновая музыка
+    pygame.mixer.music.set_volume(0.5)
+    pygame.mixer.music.play(-1)
+
     running = True
     run = True
     while running:
@@ -154,10 +172,10 @@ def game():
 
                 """ Управление мышкой """
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # ЛКМ
+                if event.button == 1 and cursor.start and cursor.pause is False:  # ЛКМ
                     cursor.status = True
 
-                if event.button == 1 and cursor.pause:  # ПАУЗА
+                if event.button == 1 and cursor.pause:  # курсор в паузее
                     # continue
                     if 343 <= event.pos[0] <= 659 and 233 <= event.pos[1] <= 292:
                         cursor.pause = False
@@ -171,10 +189,10 @@ def game():
                         running = False
                         pygame.quit()
 
-                if event.button == 1 and cursor.start is False:
+                if event.button == 1 and cursor.start is False:  # курсор на сартовом экране
                     cursor.start = True
 
-                if event.button == 1 and cursor.game_over:  # GAME OVER
+                if event.button == 1 and cursor.game_over:  # курсор на экране GAME OVER
                     # restart
                     if 383 <= event.pos[0] <= 623 and 367 <= event.pos[1] <= 403:
                         cursor.pause = False
@@ -184,11 +202,11 @@ def game():
                         running = False
                         pygame.quit()
 
-            elif event.type == pygame.MOUSEBUTTONUP:
+            elif event.type == pygame.MOUSEBUTTONUP:  # для зажима стрельбы
                 if event.button == 1:
                     cursor.status = False
 
-            elif event.type == pygame.MOUSEMOTION:
+            elif event.type == pygame.MOUSEMOTION:  # передвижение мыши
                 cursor.cord_x = event.pos[0]
                 cursor.cord_y = event.pos[1]
 
@@ -202,34 +220,33 @@ def game():
             gamer.move_up()
         if (keys[pygame.K_DOWN] or keys[pygame.K_s]) and gamer.cord_y < 465:  # 465 - нижняя граница
             gamer.move_down()
-        if keys[pygame.K_ESCAPE]:
+        if keys[pygame.K_ESCAPE]:  # Меню
             time.sleep(0.2)
             if run:
-                screen.blit(pygame.image.load('static/pause.png'), (0, 0))
+                screen.blit(pygame.image.load('static/photos/pause.png'), (0, 0))
                 pygame.display.update()
                 cursor.pause = True
                 run = False
             else:
                 run = True
                 cursor.pause = False
-
-        if keys[pygame.K_f]:
+        if keys[pygame.K_f]:  # Ускорение
             time.sleep(0.2)
             if gamer.boost_status:
                 gamer.boost_status = False
             else:
                 gamer.boost_status = True
 
-
+        """ Рисование """
         if cursor.start is False:
             # Окно старта
             screen.blit(bg, (0, -50))
-            screen.blit(pygame.image.load('static/start (2).png'), (300, 250))
+            screen.blit(pygame.image.load('static/photos/start.png'), (300, 250))
 
+        # игра началась
         if run and cursor.start:
-            """ Рисование """
             screen.blit(bg, (0, -50))  # обновление фона
-            screen.blit(pygame.image.load('static/panel.bmp'), (0, 555))  # нижняя панель - декор
+            screen.blit(pygame.image.load('static/photos/panel.bmp'), (0, 555))  # нижняя панель - декор
 
             # СПАУН АСТРОИДОВ
             if random.randint(1, 1000) > 990:
@@ -270,11 +287,15 @@ def game():
 
             # СТРЕЛЬБА
             if cursor.status and bullets.status is False:
+                # движение пули
                 bullets.create_x = bullets.end_cord_x = gamer.cord_x + 35
                 bullets.create_y = bullets.end_cord_y = gamer.cord_y + 40
                 bullets.start_cord_x = bullets.end_cord_x + bullets.long
                 bullets.start_cord_y = bullets.end_cord_y + bullets.long
                 bullets.status = True
+                # звук пули
+                pygame.mixer.Sound.play(bullets.sound)
+                pygame.mixer.Sound.set_volume(bullets.sound, 0.1)
 
             # НАПРАВЛЕИЕ стрельбы
             if bullets.status:
@@ -293,8 +314,8 @@ def game():
             text = font.render(str(gamer.score), True, (0, 0, 0))
             screen.blit(text, [70, 595])
 
-
             """ АСТЕРОИДЫ и взаимодействия с нимим"""
+
             def damage_and_boom(asteroid, asteroids, bullets):
                 # Если пуля попала, ...
                 if asteroid.cord_x <= bullets.start_cord_x <= asteroid.cord_x + asteroid.size and \
@@ -309,14 +330,26 @@ def game():
                     for boom in asteroid.boom_list:
                         screen.blit(boom, (asteroid.cord_x, asteroid.cord_y))
                         pygame.display.update()
+                        # Звук как и у игрока
+                        pygame.mixer.Sound.play(asteroid.sound_die)
+                        pygame.mixer.Sound.set_volume(asteroid.sound_die, 0.1)
+
 
             def gamer_get_damage(asteroid, gamer):
                 n = 15
                 if (asteroid.cord_x + n <= gamer.cord_x + gamer.width <= asteroid.cord_x + asteroid.size - n or
                     asteroid.cord_x + n * 2 <= gamer.cord_x <= asteroid.cord_x + asteroid.size - n * 2) and \
                         (asteroid.cord_y + n <= gamer.cord_y + gamer.height <= asteroid.cord_y + asteroid.size - n or
-                         asteroid.cord_y + n * 2 <= gamer.cord_y <= asteroid.cord_y + asteroid.size - n * 2) and\
+                         asteroid.cord_y + n * 2 <= gamer.cord_y <= asteroid.cord_y + asteroid.size - n * 2) and \
                         gamer.status:
+                    # Звук ранения
+                    if gamer.health > 1:
+                        pygame.mixer.Sound.play(gamer.sound_damage)
+                        pygame.mixer.Sound.set_volume(gamer.sound_damage, 0.5)
+                    elif gamer.health == 1:
+                        pygame.mixer.Sound.play(gamer.sound_die)
+                        pygame.mixer.Sound.set_volume(gamer.sound_die, 0.5)
+
                     gamer.health -= 1
                     gamer.status = False
                     gamer.time = time.time()
@@ -338,14 +371,14 @@ def game():
 
             # ХП ИГРОКА
             if gamer.health == 3:
-                screen.blit(pygame.image.load('static/hp.png'), (WIDTH - 70, 583))
-                screen.blit(pygame.image.load('static/hp.png'), (WIDTH - 120, 583))
-                screen.blit(pygame.image.load('static/hp.png'), (WIDTH - 170, 583))
+                screen.blit(pygame.image.load('static/photos/hp.png'), (WIDTH - 70, 583))
+                screen.blit(pygame.image.load('static/photos/hp.png'), (WIDTH - 120, 583))
+                screen.blit(pygame.image.load('static/photos/hp.png'), (WIDTH - 170, 583))
             elif gamer.health == 2:
-                screen.blit(pygame.image.load('static/hp.png'), (WIDTH - 120, 583))
-                screen.blit(pygame.image.load('static/hp.png'), (WIDTH - 170, 583))
+                screen.blit(pygame.image.load('static/photos/hp.png'), (WIDTH - 120, 583))
+                screen.blit(pygame.image.load('static/photos/hp.png'), (WIDTH - 170, 583))
             elif gamer.health == 1:
-                screen.blit(pygame.image.load('static/hp.png'), (WIDTH - 170, 583))
+                screen.blit(pygame.image.load('static/photos/hp.png'), (WIDTH - 170, 583))
             else:
                 # Красный фон после смерти
                 scr = pygame.Surface((WIDTH, HEIGHT))
@@ -353,7 +386,8 @@ def game():
                 pygame.draw.rect(scr, (204, 0, 0), (0, 0, 1000, 560))
                 screen.blit(scr, (0, 0))
                 # К
-                screen.blit(pygame.image.load("static/TheEnd.png"), (WIDTH // 2 - 421 // 2+5, HEIGHT // 2 - 210))
+                screen.blit(pygame.image.load("static/photos/TheEnd.png"),
+                            (WIDTH // 2 - 421 // 2 + 5, HEIGHT // 2 - 210))
 
                 # СЧЕТ ИГРОКА НА ФИНАЛЬНОМ ЭКРАНЕ
                 font = pygame.font.SysFont('Showcard gothic', 80)
@@ -372,4 +406,6 @@ def game():
             pygame.display.update()
         pygame.display.update()
     pygame.quit()
+
+
 game()
