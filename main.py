@@ -17,8 +17,6 @@ pygame.display.set_caption("ASTEROIDS")  # название окна
 clock = pygame.time.Clock()  # для ФПС
 
 
-
-
 """ ОБЪЕКТЫ игры """
 class Cursor:
     def __init__(self):
@@ -109,7 +107,7 @@ class Bullets:
 
 class Asteroid:
     def __init__(self, x):
-        self.speed = random.randint(1, 6)
+        self.speed = random.randint(1, 4)
         size = random.randint(60, 180)  # Рандомный размер астероида
         self.size = size
         if 60 <= size <= 90:
@@ -121,7 +119,6 @@ class Asteroid:
         else:
             self.health = 60
             self.coin = 50
-
 
         self.sprite = scale(pygame.image.load("static/photos/aster.png"), (size, size))
         self.sound_die = pygame.mixer.Sound('static/music/4_aster.mp3')
@@ -143,7 +140,7 @@ class Asteroid:
         ]
 
 
-def game():
+def main():
     global Cursor
     global Gamer
     global Bullets
@@ -152,8 +149,10 @@ def game():
     cursor = Cursor()
     gamer = Gamer()
     bullets = Bullets()
-    asteroids_r = []  # для хранения объектов Астероид
-    asteroids_l = []
+    asteroids_r = []  # для хранения объектов Астероид справа
+    asteroids_l = []  # для хранения объектов Астероид слева
+    asteroids_dead = []  # для хранения "мертвых" объектов Астероид
+
 
     """ Цикл игры MAIN """
     pygame.mixer.music.load('static/music/in_game.mp3')  # фоновая музыка
@@ -163,8 +162,8 @@ def game():
     running = True
     run = True
     while running:
-        times = int(time.time())
-        clock.tick(FPS)  # держим цикл на правильной скорости
+        times = int(time.time())  # для засечения времени (неуязвимость игрока)
+        clock.tick(FPS)  # держим цикл на правильной частоте кадров
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:  # выходи из игры через крестик
@@ -183,7 +182,7 @@ def game():
                     # restart
                     elif 370 <= event.pos[0] <= 637 and 323 <= event.pos[1] <= 380:
                         cursor.pause = False
-                        game()
+                        main()
                     # exit
                     elif 433 <= event.pos[0] <= 577 and 408 <= event.pos[1] <= 462:
                         running = False
@@ -196,7 +195,7 @@ def game():
                     # restart
                     if 383 <= event.pos[0] <= 623 and 367 <= event.pos[1] <= 403:
                         cursor.pause = False
-                        game()
+                        main()
                     # exit
                     elif 440 <= event.pos[0] <= 567 and 423 <= event.pos[1] <= 461:
                         running = False
@@ -237,13 +236,14 @@ def game():
             else:
                 gamer.boost_status = True
 
+
         """ Рисование """
+        # Окно старта
         if cursor.start is False:
-            # Окно старта
             screen.blit(bg, (0, -50))
             screen.blit(pygame.image.load('static/photos/start.png'), (300, 250))
 
-        # игра началась
+        # Игра началась
         if run and cursor.start:
             screen.blit(bg, (0, -50))  # обновление фона
             screen.blit(pygame.image.load('static/photos/panel.bmp'), (0, 555))  # нижняя панель - декор
@@ -256,6 +256,18 @@ def game():
             if random.randint(1, 1000) > 990:
                 asteroid = Asteroid(-100)
                 asteroids_l.append(asteroid)
+
+            # ВЗРЫВ АСТРОИДОВ
+            for asteroid in asteroids_dead:
+                asteroid.death_step += 1
+                screen.blit(asteroid.boom_list[asteroid.death_step], (asteroid.cord_x, asteroid.cord_y))
+                time.sleep(0.01)
+                if asteroid.death_step == 8:
+                    gamer.score += asteroid.coin
+                    asteroids_dead.remove(asteroid)
+                    # Звук получения очков за взрыв
+                    pygame.mixer.Sound.play(asteroid.sound_die)
+                    pygame.mixer.Sound.set_volume(asteroid.sound_die, 0.1)
 
             # НЕУЯЗВИМОСТЬ
             def invulnerability(color):
@@ -297,7 +309,7 @@ def game():
                 pygame.mixer.Sound.play(bullets.sound)
                 pygame.mixer.Sound.set_volume(bullets.sound, 0.1)
 
-            # НАПРАВЛЕИЕ стрельбы
+            # НАПРАВЛЕИЕ СТРЕЛЬБЫ
             if bullets.status:
                 if cursor.cord_x > gamer.cord_x and bullets.start_cord_x - bullets.create_x < 300:
                     bullets.fire_right()
@@ -314,8 +326,8 @@ def game():
             text = font.render(str(gamer.score), True, (0, 0, 0))
             screen.blit(text, [70, 595])
 
-            """ АСТЕРОИДЫ и взаимодействия с нимим"""
 
+            """ АСТЕРОИДЫ и взаимодействия с нимим"""
             def damage_and_boom(asteroid, asteroids, bullets):
                 # Если пуля попала, ...
                 if asteroid.cord_x <= bullets.start_cord_x <= asteroid.cord_x + asteroid.size and \
@@ -325,15 +337,8 @@ def game():
                     bullets.status = False
                 # Удаление астероида, если у него нет хп
                 if asteroid.health <= 0:
+                    asteroids_dead.append(asteroid)
                     asteroids.remove(asteroid)
-                    gamer.score += asteroid.coin
-                    for boom in asteroid.boom_list:
-                        screen.blit(boom, (asteroid.cord_x, asteroid.cord_y))
-                        pygame.display.update()
-                        # Звук как и у игрока
-                        pygame.mixer.Sound.play(asteroid.sound_die)
-                        pygame.mixer.Sound.set_volume(asteroid.sound_die, 0.1)
-
 
             def gamer_get_damage(asteroid, gamer):
                 n = 15
@@ -354,14 +359,15 @@ def game():
                     gamer.status = False
                     gamer.time = time.time()
 
-            # ПРАВЫЕ
+            # ПРАВЫЕ астероиды
             if len(asteroids_r) != 0:
                 for asteroid in asteroids_r:
                     screen.blit(asteroid.sprite, (asteroid.cord_x, asteroid.cord_y))
                     asteroid.cord_x -= asteroid.speed
                     damage_and_boom(asteroid, asteroids_r, bullets)
                     gamer_get_damage(asteroid, gamer)
-            # ЛЕВЫЕ
+
+            # ЛЕВЫЕ астероиды
             if len(asteroids_l) != 0:
                 for asteroid in asteroids_l:
                     screen.blit(asteroid.sprite, (asteroid.cord_x, asteroid.cord_y))
@@ -380,21 +386,21 @@ def game():
             elif gamer.health == 1:
                 screen.blit(pygame.image.load('static/photos/hp.png'), (WIDTH - 170, 583))
             else:
-                # Красный фон после смерти
+                # Мини меню
+                screen.blit(pygame.image.load("static/photos/TheEnd.png"),
+                            (WIDTH // 2 - 421 // 2 + 5, HEIGHT // 2 - 210))
+                # КРАСНЫЙ ЭКРАН СМЕРТИ ИГРОКА
                 scr = pygame.Surface((WIDTH, HEIGHT))
                 scr.set_alpha(160)
                 pygame.draw.rect(scr, (204, 0, 0), (0, 0, 1000, 560))
                 screen.blit(scr, (0, 0))
-                # К
-                screen.blit(pygame.image.load("static/photos/TheEnd.png"),
-                            (WIDTH // 2 - 421 // 2 + 5, HEIGHT // 2 - 210))
 
                 # СЧЕТ ИГРОКА НА ФИНАЛЬНОМ ЭКРАНЕ
                 font = pygame.font.SysFont('Showcard gothic', 80)
                 text = font.render(str(gamer.score), True, (250, 250, 250))
                 screen.blit(text, [450, 285])
 
-                # Меню после смерти
+                # Еще раз красный экран (в роли фильтра картинки)
                 scr = pygame.Surface((WIDTH, 555))
                 scr.set_alpha(65)
                 pygame.draw.rect(scr, (255, 153, 153), (0, 0, 1000, 560))
@@ -406,6 +412,4 @@ def game():
             pygame.display.update()
         pygame.display.update()
     pygame.quit()
-
-
-game()
+main()
