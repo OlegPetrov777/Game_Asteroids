@@ -260,7 +260,8 @@ def main():
             # ВЗРЫВ АСТРОИДОВ
             for asteroid in asteroids_dead:
                 asteroid.death_step += 1
-                screen.blit(asteroid.boom_list[asteroid.death_step], (asteroid.cord_x, asteroid.cord_y))
+                screen.blit(scale(asteroid.boom_list[asteroid.death_step], (asteroid.size, asteroid.size)),
+                            (asteroid.cord_x, asteroid.cord_y))
                 time.sleep(0.01)
                 if asteroid.death_step == 8:
                     gamer.score += asteroid.coin
